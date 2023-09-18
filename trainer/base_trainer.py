@@ -39,9 +39,7 @@ class BaseTrainer:
         ...
 
     def train(self):
-        for epoch in range(self.cfg.epoch_num):
-            errors, error_names = self._validate_with_gt()
-            
+        for epoch in range(self.cfg.epoch_num):            
             self._run_one_epoch()
 
             if self.i_epoch % self.cfg.val_epoch_size == 0:

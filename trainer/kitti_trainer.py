@@ -78,12 +78,12 @@ class TrainFramework(BaseTrainer):
                 
                 for j in range(min(4, img1.size()[0])):
                     # add flow visulization:
-                    to_tb_vis = stitching_and_show([img1[j], img2[j], flows_12[0][j], flows_21[0][j], occ_mask[j]], ver=True, show=False)
+                    to_tb_vis = stitching_and_show([img1[j], img2[j], flows_12[0][j], flows_21[0][j], occ_mask[0][j]], ver=True, show=False)
                     to_tb_vis = torchvision.transforms.functional.pil_to_tensor(to_tb_vis)
                     self.summary_writer.add_image('img1, img2, flow12, flow21, occ_mask/{}_th_batch'.format(j), to_tb_vis, self.i_iter)
 
 
-                for i in range():
+                for i in range(len(occ_mask)):
                     to_tb_vis = stitching_and_show([flows_12[i][0], flows_21[i][0], occ_mask[i][0]], ver=True, show=False)
                     to_tb_vis = torchvision.transforms.functional.pil_to_tensor(to_tb_vis)
                     self.summary_writer.add_image('MultiScale,flow12, flow21, occ_mask/scale{}'.format(i), to_tb_vis, self.i_iter)
@@ -120,7 +120,6 @@ class TrainFramework(BaseTrainer):
             os.makedirs(save_path_dir)
             
         def vis_flow_eval(flows, gt_flows, device=self.device, save_path_dir=save_path_dir):
-            print(save_path_dir)
             i = 0 # batch idx
             flow_out = flows[0][i]  # size[2, 256, 832]
             flow_gt = torch.tensor(gt_flows[i][:,:,0:2], device=self.device).permute((2,0,1))

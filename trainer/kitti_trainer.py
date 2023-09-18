@@ -118,7 +118,30 @@ class TrainFramework(BaseTrainer):
         save_path_dir = os.path.join(self.save_root, "kitti_sceneflow_eval")
         if not os.path.exists(save_path_dir):
             os.makedirs(save_path_dir)
-
+            
+        def vis_flow_eval(flows, gt_flows, device=self.device, save_path_dir=save_path_dir):
+            print(save_path_dir)
+            i = 0 # batch idx
+            flow_out = flows[0][i]  # size[2, 256, 832]
+            flow_gt = torch.tensor(gt_flows[i][:,:,0:2], device=self.device).permute((2,0,1))
+            valid_occ = torch.tensor(gt_flows[i][:,:,2], device=self.device)
+            valid_noc = torch.tensor(gt_flows[i][:,:,3], device=self.device)
+            _, h, w = flow_out.shape
+            _, H, W = flow_gt.shape
+            flow_out[0, :, :] = flow_out[0, :, :] / w * W
+            flow_out[1, :, :] = flow_out[1, :, :] / h * H
+            trans = torchvision.transforms.Resize((H, W), antialias=True)
+            flow_out = trans(flow_out)
+            
+            
+            err_map = torch.sum(torch.abs(flow_out - flow_gt) * valid_occ, dim=0).cpu()
+            err_map_norm = colors.Normalize(vmin=0, vmax=torch.max(err_map))
+            err_map_colored_tensor = mono_utils.plt_color_map_to_tensor(cmap(err_map_norm(err_map)))
+            to_save = mono_utils.stitching_and_show(img_list=[flow_out, flow_gt, err_map_colored_tensor, img1[i], img2[i]],
+                                                    ver=True, show=False)
+            save_path = os.path.join(save_path_dir, str(self.i_epoch) + "th_epoch_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")+".png")
+            to_save.save(save_path)
+            
         n_step = 0
         for i_set, loader in enumerate(self.valid_loader):
             error_names = ['EPE', 'E_noc', 'E_occ', 'F1_all']
@@ -143,30 +166,9 @@ class TrainFramework(BaseTrainer):
                 ###########################################
                 ############## visualization ##############
                 ###########################################
-                def vis_flow_eval(flows, gt_flows, device=self.device, save_path_dir=save_path_dir):
-                    print(save_path_dir)
-                    i = 0 # batch idx
-                    flow_out = flows[0][i]  # size[2, 256, 832]
-                    flow_gt = torch.tensor(gt_flows[i][:,:,0:2], device=self.device).permute((2,0,1))
-                    valid_occ = torch.tensor(gt_flows[i][:,:,2], device=self.device)
-                    valid_noc = torch.tensor(gt_flows[i][:,:,3], device=self.device)
-                    _, h, w = flow_out.shape
-                    _, H, W = flow_gt.shape
-                    flow_out[0, :, :] = flow_out[0, :, :] / w * W
-                    flow_out[1, :, :] = flow_out[1, :, :] / h * H
-                    trans = torchvision.transforms.Resize((H, W))
-                    flow_out = trans(flow_out)
-                    
-                    
-                    err_map = torch.sum(torch.abs(flow_out - flow_gt) * valid_occ, dim=0).cpu()
-                    err_map_norm = colors.Normalize(vmin=0, vmax=torch.max(err_map))
-                    err_map_colored_tensor = mono_utils.plt_color_map_to_tensor(cmap(err_map_norm(err_map)))
-                    to_save = mono_utils.stitching_and_show(img_list=[img1[i], flow_out, flow_gt, err_map_colored_tensor, img2[i]],
-                                                            ver=True, show=False)
-                    save_path = os.path.join(save_path_dir, str(self.i_epoch) + "th_epoch_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")+".png")
-                    to_save.save(save_path)
-                
-                if self.i_epoch % 10 == 0:
+
+                # if self.i_epoch % 10 == 0:
+                if True:
                     vis_flow_eval(flows, gt_flows, self.device)
 
                 es = evaluate_flow(gt_flows, pred_flows)

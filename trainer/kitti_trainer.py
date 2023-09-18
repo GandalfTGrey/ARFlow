@@ -4,6 +4,15 @@ import numpy as np
 from .base_trainer import BaseTrainer
 from utils.flow_utils import load_flow, evaluate_flow
 from utils.misc_utils import AverageMeter
+from utils.mono_utils import stitching_and_show
+import torchvision
+
+import matplotlib.pyplot as plt
+import matplotlib.colors as colors
+cmap = plt.get_cmap('viridis')
+import utils.mono_utils as mono_utils
+import os
+from datetime import datetime
 
 
 class TrainFramework(BaseTrainer):
@@ -41,7 +50,7 @@ class TrainFramework(BaseTrainer):
             flows_12, flows_21 = res_dict['flows_fw'], res_dict['flows_bw']
             flows = [torch.cat([flo12, flo21], 1) for flo12, flo21 in
                      zip(flows_12, flows_21)]
-            loss, l_ph, l_sm, flow_mean = self.loss_func(flows, img_pair)
+            loss, l_ph, l_sm, flow_mean, occ_mask = self.loss_func(flows, img_pair)
 
             # update meters
             key_meters.update([loss.item(), l_ph.item(), l_sm.item(), flow_mean.item()],
@@ -66,12 +75,25 @@ class TrainFramework(BaseTrainer):
             if self.i_iter % self.cfg.record_freq == 0:
                 for v, name in zip(key_meters.val, key_meter_names):
                     self.summary_writer.add_scalar('Train_' + name, v, self.i_iter)
+                
+                for j in range(min(4, img1.size()[0])):
+                    # add flow visulization:
+                    to_tb_vis = stitching_and_show([img1[j], img2[j], flows_12[0][j], flows_21[0][j], occ_mask[j]], ver=True, show=False)
+                    to_tb_vis = torchvision.transforms.functional.pil_to_tensor(to_tb_vis)
+                    self.summary_writer.add_image('img1, img2, flow12, flow21, occ_mask/{}_th_batch'.format(j), to_tb_vis, self.i_iter)
 
+
+                for i in range():
+                    to_tb_vis = stitching_and_show([flows_12[i][0], flows_21[i][0], occ_mask[i][0]], ver=True, show=False)
+                    to_tb_vis = torchvision.transforms.functional.pil_to_tensor(to_tb_vis)
+                    self.summary_writer.add_image('MultiScale,flow12, flow21, occ_mask/scale{}'.format(i), to_tb_vis, self.i_iter)
+
+                    
             if self.i_iter % self.cfg.print_freq == 0:
                 istr = '{}:{:04d}/{:04d}'.format(
                     self.i_epoch, i_step, self.cfg.epoch_size) + \
                        ' Time {} Data {}'.format(am_batch_time, am_data_time) + \
-                       ' Info {}'.format(key_meters)
+                       ' Info:loss,l_ph,l_sm,flow_meam{}'.format(key_meters)
                 self._log.info(istr)
 
             self.i_iter += 1
@@ -79,6 +101,7 @@ class TrainFramework(BaseTrainer):
 
     @torch.no_grad()
     def _validate_with_gt(self):
+        import cv2
         batch_time = AverageMeter()
 
         if type(self.valid_loader) is not list:
@@ -88,11 +111,13 @@ class TrainFramework(BaseTrainer):
         # https://github.com/Eromera/erfnet_pytorch/issues/2#issuecomment-486142360
         self.model = self.model.module
         self.model.eval()
-
         end = time.time()
 
         all_error_names = []
         all_error_avgs = []
+        save_path_dir = os.path.join(self.save_root, "kitti_sceneflow_eval")
+        if not os.path.exists(save_path_dir):
+            os.makedirs(save_path_dir)
 
         n_step = 0
         for i_set, loader in enumerate(self.valid_loader):
@@ -114,6 +139,35 @@ class TrainFramework(BaseTrainer):
                 # compute output
                 flows = self.model(img_pair)['flows_fw']
                 pred_flows = flows[0].detach().cpu().numpy().transpose([0, 2, 3, 1])
+                
+                ###########################################
+                ############## visualization ##############
+                ###########################################
+                def vis_flow_eval(flows, gt_flows, device=self.device, save_path_dir=save_path_dir):
+                    print(save_path_dir)
+                    i = 0 # batch idx
+                    flow_out = flows[0][i]  # size[2, 256, 832]
+                    flow_gt = torch.tensor(gt_flows[i][:,:,0:2], device=self.device).permute((2,0,1))
+                    valid_occ = torch.tensor(gt_flows[i][:,:,2], device=self.device)
+                    valid_noc = torch.tensor(gt_flows[i][:,:,3], device=self.device)
+                    _, h, w = flow_out.shape
+                    _, H, W = flow_gt.shape
+                    flow_out[0, :, :] = flow_out[0, :, :] / w * W
+                    flow_out[1, :, :] = flow_out[1, :, :] / h * H
+                    trans = torchvision.transforms.Resize((H, W))
+                    flow_out = trans(flow_out)
+                    
+                    
+                    err_map = torch.sum(torch.abs(flow_out - flow_gt) * valid_occ, dim=0).cpu()
+                    err_map_norm = colors.Normalize(vmin=0, vmax=torch.max(err_map))
+                    err_map_colored_tensor = mono_utils.plt_color_map_to_tensor(cmap(err_map_norm(err_map)))
+                    to_save = mono_utils.stitching_and_show(img_list=[img1[i], flow_out, flow_gt, err_map_colored_tensor, img2[i]],
+                                                            ver=True, show=False)
+                    save_path = os.path.join(save_path_dir, str(self.i_epoch) + "th_epoch_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")+".png")
+                    to_save.save(save_path)
+                
+                if self.i_epoch % 10 == 0:
+                    vis_flow_eval(flows, gt_flows, self.device)
 
                 es = evaluate_flow(gt_flows, pred_flows)
                 error_meters.update([l.item() for l in es], img_pair.size(0))

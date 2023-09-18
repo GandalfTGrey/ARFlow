@@ -3,8 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from utils.warp_utils import flow_warp
-from .correlation_package.correlation import Correlation
-# from .correlation_native import Correlation
+# from .correlation_package.correlation import Correlation
+from .correlation_native import Correlation
 
 def conv(in_planes, out_planes, kernel_size=3, stride=1, dilation=1, isReLU=True):
     if isReLU:
@@ -169,7 +169,6 @@ class PWCLite(nn.Module):
                            device=init_device).float()
 
         for l, (x1, x2) in enumerate(zip(x1_pyramid, x2_pyramid)):
-
             # warping
             if l == 0:
                 x2_warp = x2

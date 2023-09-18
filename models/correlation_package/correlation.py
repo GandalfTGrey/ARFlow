@@ -14,7 +14,8 @@ class CorrelationFunction(Function):
         self.stride2 = stride2
         self.corr_multiply = corr_multiply
         # self.out_channel = ((max_displacement/stride2)*2 + 1) * ((max_displacement/stride2)*2 + 1)
-
+    
+    @staticmethod
     def forward(self, input1, input2):
         self.save_for_backward(input1, input2)
 
@@ -27,7 +28,8 @@ class CorrelationFunction(Function):
                 self.pad_size, self.kernel_size, self.max_displacement,self.stride1, self.stride2, self.corr_multiply)
 
         return output
-
+    
+    @staticmethod
     def backward(self, grad_output):
         input1, input2 = self.saved_tensors
 
@@ -55,8 +57,9 @@ class Correlation(Module):
         self.corr_multiply = corr_multiply
 
     def forward(self, input1, input2):
+        CorrFunc = CorrelationFunction(self.pad_size, self.kernel_size, self.max_displacement, self.stride1, self.stride2, self.corr_multiply)
 
-        result = CorrelationFunction(self.pad_size, self.kernel_size, self.max_displacement, self.stride1, self.stride2, self.corr_multiply)(input1, input2)
+        result = CorrFunc.apply(input1, input2)
 
         return result
 

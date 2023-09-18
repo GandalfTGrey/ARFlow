@@ -1,5 +1,5 @@
 {"data": {"root_kitti12": "/Data/flow_dataset/kitti_stereo_flow/training/",
-          "root_kitti15": "/Data/flow_dataset/kitti_scene_flow/training/",
+          "root_kitti15": "/home/liu/AD_Data/DiFint/win_id4_share/KITTI/scene_flow_2015/data_scene_flow_multiview/training",
           "train_15": true,
           "run_at": false,
           "test_shape": [256, 832],

@@ -111,4 +111,4 @@ class unFlowLoss(nn.modules.Module):
         smooth_loss = self.cfg.w_smooth * sum(pyramid_smooth_losses)
         total_loss = warp_loss + smooth_loss
 
-        return total_loss, warp_loss, smooth_loss, pyramid_flows[0].abs().mean()
+        return total_loss, warp_loss, smooth_loss, pyramid_flows[0].abs().mean(), self.pyramid_occu_mask1

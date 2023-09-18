@@ -69,6 +69,7 @@ def get_dataset(all_cfg):
                              target_transform={'flow': sep_transforms.ArrayToTensor()}
                              )
         valid_set = ConcatDataset([valid_set_1, valid_set_2])
+    
     elif cfg.type == 'KITTI_Raw':
         train_input_transform = copy.deepcopy(input_transform)
         train_input_transform.transforms.insert(0, sep_transforms.Zoom(*cfg.train_shape))
@@ -89,10 +90,12 @@ def get_dataset(all_cfg):
         valid_set_1 = KITTIFlow(cfg.root_kitti15, n_frames=cfg.val_n_frames,
                                 transform=valid_input_transform,
                                 )
-        valid_set_2 = KITTIFlow(cfg.root_kitti12, n_frames=cfg.val_n_frames,
-                                transform=valid_input_transform,
-                                )
-        valid_set = ConcatDataset([valid_set_1, valid_set_2])
+        # valid_set_2 = KITTIFlow(cfg.root_kitti12, n_frames=cfg.val_n_frames,
+        #                         transform=valid_input_transform,
+        #                         )
+        # valid_set = ConcatDataset([valid_set_1, valid_set_2])
+        valid_set = valid_set_1
+    
     elif cfg.type == 'KITTI_MV':
         train_input_transform = copy.deepcopy(input_transform)
         train_input_transform.transforms.insert(0, sep_transforms.Zoom(*cfg.train_shape))

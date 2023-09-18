@@ -248,6 +248,7 @@ class KITTIFlow(ImgSeqDataset):
         assert (self.root / flow_occ_dir).isdir()
 
         img_dir = 'image_2'
+        print(self.root)
         assert (self.root / img_dir).isdir()
 
         samples = []
